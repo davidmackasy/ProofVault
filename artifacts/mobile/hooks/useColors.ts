@@ -2,6 +2,9 @@ import { useColorScheme } from "react-native";
 
 import colors from "@/constants/colors";
 
+export type ColorTokens = typeof colors.light;
+export type AppColors = ColorTokens & { radius: number };
+
 /**
  * Returns the design tokens for the current color scheme.
  *
@@ -14,11 +17,9 @@ import colors from "@/constants/colors";
  * key, this hook will automatically switch palettes based on the
  * device's appearance setting.
  */
-export function useColors() {
+export function useColors(): AppColors {
   const scheme = useColorScheme();
-  const palette =
-    scheme === "dark" && "dark" in colors
-      ? (colors as Record<string, typeof colors.light>).dark
-      : colors.light;
+  const palette: ColorTokens =
+    scheme === "dark" && "dark" in colors ? colors.dark : colors.light;
   return { ...palette, radius: colors.radius };
 }

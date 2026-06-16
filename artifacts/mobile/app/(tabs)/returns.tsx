@@ -134,7 +134,12 @@ export default function ReturnsScreen() {
     { key: "all", label: "All Deadlines" },
   ];
 
-  const isEmpty = grouped.thisWeek.length === 0 && grouped.thisMonth.length === 0 && grouped.later.length === 0;
+  const isEmpty = items.length === 0;
+  const noDeadlines =
+    !isEmpty &&
+    grouped.thisWeek.length === 0 &&
+    grouped.thisMonth.length === 0 &&
+    grouped.later.length === 0;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -174,6 +179,14 @@ export default function ReturnsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {isEmpty ? (
+          <EmptyState
+            icon="rotate-ccw"
+            title="No returns to track yet"
+            description="Add a purchase with a return deadline and we'll show it here before the window closes."
+            ctaLabel="Add purchase"
+            onCta={() => router.push("/add-purchase")}
+          />
+        ) : noDeadlines ? (
           <EmptyState
             icon="check-circle"
             title="You're all caught up"

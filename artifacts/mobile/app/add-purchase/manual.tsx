@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useAddPurchaseFlow } from "@/context/AddPurchaseFlowContext";
 import { usePurchases } from "@/context/PurchaseContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -22,6 +24,7 @@ export default function ManualAddScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { addItem } = usePurchases();
+  const { capturedReceiptUri, clearCapturedReceipt } = useAddPurchaseFlow();
 
   const [form, setForm] = useState({
     itemName: "",
@@ -59,6 +62,7 @@ export default function ManualAddScreen() {
     if (!validate()) return;
     setSaving(true);
     try {
+      const hasReceipt = !!capturedReceiptUri;
       const id = await addItem({
         itemName: form.itemName.trim(),
         storeName: form.storeName || undefined,
@@ -69,11 +73,23 @@ export default function ManualAddScreen() {
         returnDeadline: form.returnDeadline || undefined,
         warrantyExpiry: form.warrantyExpiry || undefined,
         notes: form.notes || undefined,
-        status: "needs_proof",
-        proofComplete: false,
-        proofPack: [],
-        sourceType: "manual",
+        status: hasReceipt ? "returnable" : "needs_proof",
+        proofComplete: hasReceipt,
+        proofPack: hasReceipt
+          ? [
+              {
+                id: "",
+                itemId: "",
+                userId: "user1",
+                type: "receipt",
+                fileUrl: capturedReceiptUri!,
+                createdAt: new Date().toISOString(),
+              },
+            ]
+          : [],
+        sourceType: hasReceipt ? "physical_receipt" : "manual",
       });
+      clearCapturedReceipt();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace(`/item/${id}` as any);
     } finally {
@@ -123,6 +139,24 @@ export default function ManualAddScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {capturedReceiptUri ? (
+          <View
+            style={[
+              styles.receiptPreview,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+              ATTACHED RECEIPT
+            </Text>
+            <Image
+              source={{ uri: capturedReceiptUri }}
+              style={styles.receiptImage}
+              contentFit="contain"
+            />
+          </View>
+        ) : null}
+
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
             ITEM DETAILS
@@ -221,6 +255,13 @@ const styles = StyleSheet.create({
   backBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   title: { fontFamily: "Inter_600SemiBold", fontSize: 16 },
   scroll: { paddingHorizontal: 20, gap: 20 },
+  receiptPreview: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+  },
+  receiptImage: { width: "100%", height: 160, borderRadius: 10 },
   section: { gap: 12 },
   sectionLabel: { fontFamily: "Inter_600SemiBold", fontSize: 11, letterSpacing: 1 },
   fieldWrap: { gap: 6 },

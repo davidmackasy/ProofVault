@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -12,11 +13,13 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useAddPurchaseFlow } from "@/context/AddPurchaseFlowContext";
 import { useColors } from "@/hooks/useColors";
 
 export default function ScanScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { setCapturedReceiptUri } = useAddPurchaseFlow();
   const [selectedUri, setSelectedUri] = useState<string | null>(null);
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0) + 16;
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0) + 24;
@@ -32,12 +35,13 @@ export default function ScanScreen() {
   };
 
   const handleContinue = () => {
+    if (!selectedUri) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push({ pathname: "/add-purchase/scanning", params: { uri: selectedUri ?? "" } });
+    setCapturedReceiptUri(selectedUri);
+    router.push("/add-purchase/preview" as any);
   };
 
   const OPTIONS = [
-    { icon: "camera" as const, label: "Scan Receipt", onPress: pickImage },
     { icon: "image" as const, label: "Upload Screenshot", onPress: pickImage },
     { icon: "file" as const, label: "Import Email", onPress: pickImage },
     { icon: "smartphone" as const, label: "Take Item Photo", onPress: pickImage },
@@ -49,7 +53,7 @@ export default function ScanScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Feather name="arrow-left" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>Upload Receipt</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Upload Proof</Text>
         <View style={styles.backBtn} />
       </View>
 
@@ -62,7 +66,8 @@ export default function ScanScreen() {
             Build your Proof Pack
           </Text>
           <Text style={[styles.promptSub, { color: colors.mutedForeground }]}>
-            Upload a receipt, order screenshot, or proof of purchase.
+            Upload a receipt, order screenshot, or proof of purchase from your
+            library.
           </Text>
         </View>
 
@@ -82,15 +87,28 @@ export default function ScanScreen() {
           ))}
         </View>
 
-        {selectedUri && (
-          <View style={[styles.selectedBadge, { backgroundColor: colors.success + "18", borderColor: colors.success + "30" }]}>
-            <Feather name="check-circle" size={16} color={colors.success} />
-            <Text style={[styles.selectedText, { color: colors.success }]}>
-              File selected — ready to analyze
-            </Text>
+        {selectedUri ? (
+          <View style={styles.selectedWrap}>
+            <View
+              style={[
+                styles.previewCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Image
+                source={{ uri: selectedUri }}
+                style={styles.previewImage}
+                contentFit="contain"
+              />
+            </View>
+            <View style={[styles.selectedBadge, { backgroundColor: colors.success + "18", borderColor: colors.success + "30" }]}>
+              <Feather name="check-circle" size={16} color={colors.success} />
+              <Text style={[styles.selectedText, { color: colors.success }]}>
+                File selected — ready to continue
+              </Text>
+            </View>
           </View>
-        )}
-
+        ) : null}
         <View style={styles.bottom}>
           <TouchableOpacity
             style={[
@@ -106,9 +124,9 @@ export default function ScanScreen() {
                 { color: selectedUri ? colors.primaryForeground : colors.mutedForeground },
               ]}
             >
-              {selectedUri ? "Analyze with AI" : "Select a file first"}
+              {selectedUri ? "Continue" : "Select a file first"}
             </Text>
-            {selectedUri && <Feather name="zap" size={16} color={colors.primaryForeground} />}
+            {selectedUri && <Feather name="arrow-right" size={16} color={colors.primaryForeground} />}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/add-purchase/manual")}>
             <Text style={[styles.skipText, { color: colors.mutedForeground }]}>
@@ -170,6 +188,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   gridLabel: { fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "center" },
+  selectedWrap: { gap: 10 },
+  previewCard: {
+    width: "100%",
+    height: 180,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  previewImage: { width: "100%", height: "100%" },
   selectedBadge: {
     flexDirection: "row",
     alignItems: "center",

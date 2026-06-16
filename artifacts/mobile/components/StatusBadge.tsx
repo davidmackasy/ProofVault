@@ -1,12 +1,12 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { useColors } from "@/hooks/useColors";
+import { ColorTokens, useColors } from "@/hooks/useColors";
 import { PurchaseStatus } from "@/types";
 
 const STATUS_CONFIG: Record<
   PurchaseStatus,
-  { label: string; colorKey: string }
+  { label: string; colorKey: keyof ColorTokens }
 > = {
   returnable: { label: "Returnable", colorKey: "primary" },
   ending_soon: { label: "Ending Soon", colorKey: "warning" },
@@ -25,7 +25,7 @@ interface Props {
 export function StatusBadge({ status, size = "md" }: Props) {
   const colors = useColors();
   const config = STATUS_CONFIG[status];
-  const color = (colors as Record<string, string>)[config.colorKey] ?? colors.mutedForeground;
+  const color = colors[config.colorKey] ?? colors.mutedForeground;
 
   const isSmall = size === "sm";
 

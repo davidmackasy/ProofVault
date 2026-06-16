@@ -13,9 +13,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 
 const STEPS = [
-  { icon: "search" as const, label: "Detecting receipt..." },
-  { icon: "cpu" as const, label: "Extracting details..." },
-  { icon: "check-circle" as const, label: "Reviewing data..." },
+  { icon: "search" as const, label: "Scanning receipt…" },
+  { icon: "file-text" as const, label: "Reading purchase details…" },
+  { icon: "check-circle" as const, label: "Preparing review…" },
 ];
 
 export default function ScanningScreen() {
@@ -74,9 +74,9 @@ export default function ScanningScreen() {
           </View>
         </Animated.View>
 
-        <Text style={[styles.title, { color: colors.text }]}>Extracting details...</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Reading purchase details…</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          AI is reading your receipt
+          Hang tight while we read your receipt
         </Text>
 
         <View style={styles.steps}>

@@ -2,16 +2,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
   ReactNode,
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
 } from "react";
 
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+
 interface AuthContextValue {
   isAuthenticated: boolean;
   hasSeenOnboarding: boolean;
   isLoading: boolean;
+  userId: string | null;
   userEmail: string;
   userName: string;
   signIn: (email: string, password: string) => Promise<void>;
@@ -26,31 +30,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
+
+  const applySession = useCallback(
+    (session: { user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> } } | null) => {
+      if (session?.user) {
+        setIsAuthenticated(true);
+        setUserId(session.user.id);
+        setUserEmail(session.user.email ?? "");
+        const metaName = session.user.user_metadata?.full_name;
+        setUserName(
+          typeof metaName === "string"
+            ? metaName
+            : (session.user.email?.split("@")[0] ?? "")
+        );
+      } else {
+        setIsAuthenticated(false);
+        setUserId(null);
+        setUserEmail("");
+        setUserName("");
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     (async () => {
       try {
-        const [authStr, onboardingStr, email, name] = await Promise.all([
-          AsyncStorage.getItem("pv_authenticated"),
-          AsyncStorage.getItem("pv_onboarding_complete"),
-          AsyncStorage.getItem("pv_user_email"),
-          AsyncStorage.getItem("pv_user_name"),
-        ]);
-        setIsAuthenticated(authStr === "true");
+        const onboardingStr = await AsyncStorage.getItem("pv_onboarding_complete");
         setHasSeenOnboarding(onboardingStr === "true");
-        setUserEmail(email ?? "");
-        setUserName(name ?? "");
+
+        if (isSupabaseConfigured) {
+          const supabase = getSupabase();
+          const { data } = await supabase.auth.getSession();
+          applySession(data.session);
+          supabase.auth.onAuthStateChange((_event, session) => {
+            applySession(session);
+          });
+        } else {
+          const [authStr, email, name] = await Promise.all([
+            AsyncStorage.getItem("pv_authenticated"),
+            AsyncStorage.getItem("pv_user_email"),
+            AsyncStorage.getItem("pv_user_name"),
+          ]);
+          setIsAuthenticated(authStr === "true");
+          setUserEmail(email ?? "");
+          setUserName(name ?? "");
+          setUserId(authStr === "true" ? "local-user" : null);
+        }
       } catch {
         // ignore
       } finally {
         setIsLoading(false);
       }
     })();
-  }, []);
+  }, [applySession]);
 
-  const signIn = async (email: string, _password: string) => {
+  const signIn = async (email: string, password: string) => {
+    if (isSupabaseConfigured) {
+      const supabase = getSupabase();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      return;
+    }
+
     const name = email.split("@")[0] ?? email;
     await Promise.all([
       AsyncStorage.setItem("pv_authenticated", "true"),
@@ -58,11 +103,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       AsyncStorage.setItem("pv_user_name", name),
     ]);
     setIsAuthenticated(true);
+    setUserId("local-user");
     setUserEmail(email);
     setUserName(name);
   };
 
-  const signUp = async (email: string, _password: string, name: string) => {
+  const signUp = async (email: string, password: string, name: string) => {
+    if (isSupabaseConfigured) {
+      const supabase = getSupabase();
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name } },
+      });
+      if (error) throw error;
+      return;
+    }
+
     const displayName = name || email.split("@")[0] || email;
     await Promise.all([
       AsyncStorage.setItem("pv_authenticated", "true"),
@@ -70,13 +127,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       AsyncStorage.setItem("pv_user_name", displayName),
     ]);
     setIsAuthenticated(true);
+    setUserId("local-user");
     setUserEmail(email);
     setUserName(displayName);
   };
 
   const signOut = async () => {
-    await AsyncStorage.removeItem("pv_authenticated");
-    setIsAuthenticated(false);
+    if (isSupabaseConfigured) {
+      await getSupabase().auth.signOut();
+    } else {
+      await AsyncStorage.removeItem("pv_authenticated");
+      setIsAuthenticated(false);
+      setUserId(null);
+    }
   };
 
   const completeOnboarding = async () => {
@@ -89,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       hasSeenOnboarding,
       isLoading,
+      userId,
       userEmail,
       userName,
       signIn,
@@ -96,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       completeOnboarding,
     }),
-    [isAuthenticated, hasSeenOnboarding, isLoading, userEmail, userName]
+    [isAuthenticated, hasSeenOnboarding, isLoading, userId, userEmail, userName]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

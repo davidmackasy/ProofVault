@@ -15,10 +15,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.proofvault.app"
+      "bundleIdentifier": "com.proofvault.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ProofVault uses the camera to scan receipts and capture proof of purchase."
+      }
     },
     "android": {
-      "package": "com.proofvault.app"
+      "package": "com.proofvault.app",
+      "permissions": ["android.permission.CAMERA"]
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -26,13 +30,17 @@
     "plugins": [
       [
         "expo-router",
-        {
-          "origin": "https://replit.com/"
-        }
+        {}
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-image-picker"
+      "expo-image-picker",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ProofVault uses the camera to scan receipts and capture proof of purchase."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

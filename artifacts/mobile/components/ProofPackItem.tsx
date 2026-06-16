@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -18,10 +19,11 @@ const PROOF_CONFIG: Record<ProofType, { label: string; icon: keyof typeof Feathe
 interface Props {
   type: ProofType;
   added: boolean;
+  fileUrl?: string;
   onPress?: () => void;
 }
 
-export function ProofPackItem({ type, added, onPress }: Props) {
+export function ProofPackItem({ type, added, fileUrl, onPress }: Props) {
   const colors = useColors();
   const config = PROOF_CONFIG[type];
 
@@ -32,11 +34,15 @@ export function ProofPackItem({ type, added, onPress }: Props) {
       activeOpacity={0.7}
     >
       <View style={[styles.iconBox, { backgroundColor: added ? colors.primary + "18" : colors.muted }]}>
-        <Feather
-          name={config.icon}
-          size={18}
-          color={added ? colors.primary : colors.mutedForeground}
-        />
+        {added && fileUrl ? (
+          <Image source={{ uri: fileUrl }} style={styles.thumbnail} contentFit="cover" />
+        ) : (
+          <Feather
+            name={config.icon}
+            size={18}
+            color={added ? colors.primary : colors.mutedForeground}
+          />
+        )}
       </View>
       <Text style={[styles.label, { color: added ? colors.text : colors.mutedForeground }]}>
         {config.label}
@@ -70,7 +76,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
+  thumbnail: { width: "100%", height: "100%" },
   label: {
     flex: 1,
     fontFamily: "Inter_500Medium",

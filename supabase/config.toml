@@ -1,0 +1,15 @@
+# Supabase CLI config — run migrations and deploy functions from repo root:
+#   supabase link --project-ref YOUR_REF
+#   supabase db push
+#   supabase functions deploy extract-receipt
+
+project_id = "proofvault"
+
+[api]
+enabled = true
+
+[db]
+major_version = 15
+
+[functions.extract-receipt]
+verify_jwt = true

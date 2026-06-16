@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
@@ -59,6 +60,9 @@ export default function ItemDetailScreen() {
 
   const returnDays = daysFromNow(item.returnDeadline);
   const warrantyDays = daysFromNow(item.warrantyExpiry);
+  const receiptProof = item.proofPack.find(
+    (p) => (p.type === "receipt" || p.type === "online_order") && p.fileUrl
+  );
 
   const handleArchive = () => {
     if (Platform.OS === "web") {
@@ -99,9 +103,24 @@ export default function ItemDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.heroCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.itemIcon, { backgroundColor: colors.muted }]}>
-            <Feather name="package" size={36} color={colors.mutedForeground} />
-          </View>
+          {receiptProof?.fileUrl ? (
+            <View
+              style={[
+                styles.receiptImageWrap,
+                { backgroundColor: colors.muted, borderColor: colors.border },
+              ]}
+            >
+              <Image
+                source={{ uri: receiptProof.fileUrl }}
+                style={styles.receiptImage}
+                contentFit="contain"
+              />
+            </View>
+          ) : (
+            <View style={[styles.itemIcon, { backgroundColor: colors.muted }]}>
+              <Feather name="package" size={36} color={colors.mutedForeground} />
+            </View>
+          )}
           <View style={styles.heroInfo}>
             <StatusBadge status={item.status} />
             <Text style={[styles.itemName, { color: colors.text }]}>{item.itemName}</Text>
@@ -326,6 +345,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 4,
   },
+  receiptImageWrap: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+    marginBottom: 4,
+  },
+  receiptImage: { width: "100%", height: "100%" },
   heroInfo: { gap: 6 },
   itemName: { fontFamily: "Inter_700Bold", fontSize: 22, letterSpacing: -0.4 },
   itemDesc: { fontFamily: "Inter_400Regular", fontSize: 14 },

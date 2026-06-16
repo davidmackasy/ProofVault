@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
@@ -50,6 +51,10 @@ export default function ProofPackScreen() {
   }
 
   const addedTypes = new Set(item.proofPack.map((p) => p.type));
+  const proofByType = Object.fromEntries(
+    item.proofPack.map((p) => [p.type, p])
+  ) as Partial<Record<ProofType, (typeof item.proofPack)[number]>>;
+  const imageProofs = item.proofPack.filter((p) => p.fileUrl);
   const total = ALL_PROOF_TYPES.length;
   const completed = addedTypes.size;
   const pct = Math.round((completed / total) * 100);
@@ -138,12 +143,41 @@ export default function ProofPackScreen() {
           </View>
         </View>
 
+        {imageProofs.length > 0 ? (
+          <View
+            style={[
+              styles.galleryCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+              SAVED PROOF
+            </Text>
+            {imageProofs.map((proof) => (
+              <View
+                key={proof.id}
+                style={[
+                  styles.galleryItem,
+                  { backgroundColor: colors.muted, borderColor: colors.border },
+                ]}
+              >
+                <Image
+                  source={{ uri: proof.fileUrl! }}
+                  style={styles.galleryImage}
+                  contentFit="contain"
+                />
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {ALL_PROOF_TYPES.map((type) => (
             <ProofPackItem
               key={type}
               type={type}
               added={addedTypes.has(type)}
+              fileUrl={proofByType[type]?.fileUrl}
               onPress={() => {
                 if (addedTypes.has(type)) return;
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -203,6 +237,25 @@ const styles = StyleSheet.create({
   pctText: { fontFamily: "Inter_700Bold", fontSize: 14 },
   progressBar: { height: 6, borderRadius: 3, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 3 },
+  galleryCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+  },
+  sectionLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    letterSpacing: 1,
+  },
+  galleryItem: {
+    width: "100%",
+    height: 220,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  galleryImage: { width: "100%", height: "100%" },
   listCard: {
     borderRadius: 16,
     borderWidth: 1,

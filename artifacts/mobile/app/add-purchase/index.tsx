@@ -26,7 +26,7 @@ const OPTIONS: Option[] = [
     icon: "camera",
     title: "Scan Receipt",
     description: "Point your camera at a paper receipt",
-    route: "/add-purchase/scan",
+    route: "/add-purchase/camera",
     primary: true,
   },
   {
