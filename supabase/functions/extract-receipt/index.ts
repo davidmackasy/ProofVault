@@ -1,62 +1,122 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+import { getGoogleAccessToken, parseServiceAccount } from "./googleAuth.ts";
+import { parseExpenseDocument } from "./parseDocument.ts";
+import { ExtractReceiptResponse, failureResponse } from "./response.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
 
-const EXTRACTION_PROMPT = `You are a purchase-proof reading engine.
+async function loadImageBytes(
+  supabaseUrl: string,
+  serviceKey: string,
+  storagePath: string | null,
+  imageBase64: string | null,
+  mimeType: string
+): Promise<{ content: string; mimeType: string }> {
+  if (imageBase64) {
+    return { content: imageBase64, mimeType };
+  }
 
-You are given an image that is proof of a purchase. It may be a paper receipt, online order screenshot, email receipt screenshot, warranty card, or confirmation page.
+  if (!storagePath) {
+    throw new Error("No image provided");
+  }
 
-Extract the purchase details and return ONLY valid JSON. Do not include prose, markdown, or explanations.
+  const adminClient = createClient(supabaseUrl, serviceKey);
+  const { data: fileData, error } = await adminClient.storage
+    .from("proof-images")
+    .download(storagePath);
 
-Return this JSON shape:
+  if (error || !fileData) {
+    throw new Error("Could not load receipt image");
+  }
 
-{
-  "storeName": string | null,
-  "purchaseDate": string | null,
-  "purchaseTime": string | null,
-  "totalAmount": number | null,
-  "currency": string | null,
-  "items": [
-    {
-      "name": string,
-      "price": number | null
-    }
-  ],
-  "sourceType": "physical_receipt" | "online_order" | "unknown",
-  "receiptNumber": string | null,
-  "orderNumber": string | null,
-  "returnPolicyText": string | null,
-  "warrantyText": string | null,
-  "confidence": number,
-  "rawExtractedText": string
+  const buffer = await fileData.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  const content = btoa(binary);
+  return { content, mimeType: fileData.type || mimeType };
 }
 
-Rules:
-- If a field is not clearly visible, return null.
-- Do not guess aggressively.
-- Do not invent a store, date, total, return window, or warranty.
-- Null is better than wrong.
-- Lower confidence for blurry, cropped, partial, or unclear images.
-- Return confidence between 0 and 1.`;
+async function processWithDocumentAi(
+  content: string,
+  mimeType: string
+): Promise<ExtractReceiptResponse> {
+  const projectId = Deno.env.get("GOOGLE_CLOUD_PROJECT_ID");
+  const location = Deno.env.get("GOOGLE_DOCUMENTAI_LOCATION") ?? "us";
+  const processorId = Deno.env.get("GOOGLE_DOCUMENTAI_PROCESSOR_ID");
+  const serviceAccountJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
 
-interface ExtractedReceipt {
-  storeName: string | null;
-  purchaseDate: string | null;
-  purchaseTime: string | null;
-  totalAmount: number | null;
-  currency: string | null;
-  items: { name: string; price: number | null }[];
-  sourceType: "physical_receipt" | "online_order" | "unknown";
-  receiptNumber: string | null;
-  orderNumber: string | null;
-  returnPolicyText: string | null;
-  warrantyText: string | null;
-  confidence: number;
-  rawExtractedText: string;
+  if (!projectId || !processorId || !serviceAccountJson) {
+    console.error("[extract-receipt] Document AI not configured");
+    return failureResponse("Could not read receipt");
+  }
+
+  console.log("[extract-receipt] Document AI request started", {
+    mimeType,
+    contentBytes: content.length,
+    location,
+    processorId,
+  });
+
+  const serviceAccount = parseServiceAccount(serviceAccountJson);
+  const accessToken = await getGoogleAccessToken(serviceAccount);
+
+  const url =
+    `https://${location}-documentai.googleapis.com/v1/projects/${projectId}` +
+    `/locations/${location}/processors/${processorId}:process`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      skipHumanReview: true,
+      rawDocument: { content, mimeType },
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error("[extract-receipt] Document AI error:", response.status, errText.slice(0, 500));
+    return failureResponse("Could not read receipt");
+  }
+
+  const result = await response.json();
+  const document = result.document;
+  if (!document) {
+    console.error("[extract-receipt] Document AI response missing document");
+    return failureResponse("Could not read receipt");
+  }
+
+  const entityCount = document.entities?.length ?? 0;
+  const textLength = document.text?.length ?? 0;
+  console.log("[extract-receipt] Document AI response received", {
+    entityCount,
+    textLength,
+  });
+
+  const parsed = parseExpenseDocument(document);
+  console.log("[extract-receipt] Parsed fields", {
+    success: parsed.success,
+    isReceipt: parsed.isReceipt,
+    storeName: parsed.storeName,
+    purchaseDate: parsed.purchaseDate,
+    purchaseTime: parsed.purchaseTime,
+    totalAmount: parsed.totalAmount,
+    currency: parsed.currency,
+    itemCount: parsed.items.length,
+    receiptNumber: parsed.receiptNumber,
+    confidence: parsed.confidence,
+  });
+
+  return parsed;
 }
 
 Deno.serve(async (req) => {
@@ -67,22 +127,24 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return jsonResponse({ error: "Missing authorization" }, 401);
+      return jsonResponse(failureResponse("Could not read receipt"), 401);
     }
 
-    const { storagePath } = await req.json();
-    if (!storagePath || typeof storagePath !== "string") {
-      return jsonResponse({ error: "storagePath is required" }, 400);
+    const body = await req.json();
+    const storagePath =
+      typeof body.storagePath === "string" ? body.storagePath : null;
+    const imageBase64 =
+      typeof body.imageBase64 === "string" ? body.imageBase64 : null;
+    const mimeType =
+      typeof body.mimeType === "string" ? body.mimeType : "image/jpeg";
+
+    if (!storagePath && !imageBase64) {
+      return jsonResponse(failureResponse("Could not read receipt"), 400);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const openAiKey = Deno.env.get("OPENAI_API_KEY");
-
-    if (!openAiKey) {
-      return jsonResponse({ error: "Receipt reading is not configured" }, 503);
-    }
 
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -94,100 +156,47 @@ Deno.serve(async (req) => {
     } = await userClient.auth.getUser();
 
     if (userError || !user) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return jsonResponse(failureResponse("Could not read receipt"), 401);
     }
 
-    const pathUserId = storagePath.split("/")[0];
-    if (pathUserId !== user.id) {
-      return jsonResponse({ error: "Forbidden" }, 403);
-    }
-
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-    const { data: fileData, error: downloadError } = await adminClient.storage
-      .from("proof-images")
-      .download(storagePath);
-
-    if (downloadError || !fileData) {
-      return jsonResponse({ error: "Could not load receipt image" }, 404);
-    }
-
-    const buffer = await fileData.arrayBuffer();
-    const base64 = btoa(
-      new Uint8Array(buffer).reduce(
-        (data, byte) => data + String.fromCharCode(byte),
-        ""
-      )
-    );
-    const mimeType = fileData.type || "image/jpeg";
-    const dataUrl = `data:${mimeType};base64,${base64}`;
-
-    const openAiResponse = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${openAiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: EXTRACTION_PROMPT },
-                { type: "image_url", image_url: { url: dataUrl } },
-              ],
-            },
-          ],
-          max_tokens: 1200,
-        }),
+    if (storagePath) {
+      const pathUserId = storagePath.split("/")[0];
+      if (pathUserId !== user.id) {
+        return jsonResponse(failureResponse("Could not read receipt"), 403);
       }
+    }
+
+    console.log("[extract-receipt] Request received", {
+      userId: user.id,
+      hasStoragePath: !!storagePath,
+      storagePath: storagePath ?? undefined,
+      hasBase64: !!imageBase64,
+      base64Length: imageBase64?.length ?? 0,
+      mimeType,
+    });
+
+    const { content, mimeType: resolvedMime } = await loadImageBytes(
+      supabaseUrl,
+      supabaseServiceKey,
+      storagePath,
+      imageBase64,
+      mimeType
     );
 
-    if (!openAiResponse.ok) {
-      const errText = await openAiResponse.text();
-      console.error("OpenAI error:", errText);
-      return jsonResponse({ error: "Could not read receipt" }, 502);
-    }
-
-    const openAiJson = await openAiResponse.json();
-    const content = openAiJson.choices?.[0]?.message?.content;
-    if (!content) {
-      return jsonResponse({ error: "Empty response" }, 502);
-    }
-
-    const parsed = JSON.parse(content) as ExtractedReceipt;
-    const primaryItemName =
-      parsed.items?.[0]?.name ??
-      parsed.storeName ??
-      null;
-
-    return jsonResponse({
-      storeName: parsed.storeName,
-      purchaseDate: parsed.purchaseDate,
-      purchaseTime: parsed.purchaseTime,
-      totalAmount: parsed.totalAmount,
-      currency: parsed.currency,
-      itemNames: parsed.items?.map((i) => i.name).filter(Boolean) ?? [],
-      itemName: primaryItemName,
-      sourceType: parsed.sourceType ?? "unknown",
-      receiptNumber: parsed.receiptNumber,
-      orderNumber: parsed.orderNumber,
-      returnPolicyText: parsed.returnPolicyText,
-      warrantyText: parsed.warrantyText,
-      confidence: parsed.confidence ?? 0,
-      rawExtractedText: parsed.rawExtractedText ?? "",
-      needsReview: true,
+    const result = await processWithDocumentAi(content, resolvedMime);
+    console.log("[extract-receipt] Final response", {
+      success: result.success,
+      isReceipt: result.isReceipt,
+      confidence: result.confidence,
     });
+    return jsonResponse(result);
   } catch (error) {
     console.error("extract-receipt error:", error);
-    return jsonResponse({ error: "Could not read receipt" }, 500);
+    return jsonResponse(failureResponse("Could not read receipt"));
   }
 });
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: ExtractReceiptResponse, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },

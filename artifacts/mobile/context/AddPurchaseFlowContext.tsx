@@ -11,7 +11,13 @@ import React, {
 import { ReceiptReadResult } from "@/lib/receiptPipeline";
 import { ExtractionResult } from "@/types";
 
-export type ReadStatus = "idle" | "uploading" | "reading" | "done" | "partial";
+export type ReadStatus =
+  | "idle"
+  | "uploading"
+  | "reading"
+  | "done"
+  | "partial"
+  | "not_receipt";
 
 interface AddPurchaseFlowContextValue {
   capturedReceiptUri: string | null;
@@ -123,7 +129,7 @@ export function useAddPurchaseFlow() {
 export function toExtractionResult(
   read: ReceiptReadResult | null
 ): ExtractionResult | undefined {
-  if (!read) return undefined;
+  if (!read || !read.success) return undefined;
   return {
     confidence: read.confidence,
     rawExtractedText: read.rawExtractedText,

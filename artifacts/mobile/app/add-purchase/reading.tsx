@@ -14,10 +14,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAddPurchaseFlow } from "@/context/AddPurchaseFlowContext";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { isSupabaseConfigured } from "@/lib/supabase";
 import {
-  readReceiptFromStorage,
-  uploadReceiptImage,
+  ensureReceiptReadingSession,
+  hasUsefulExtractedDetails,
+  isNotReceiptImage,
+  readReceiptImage,
 } from "@/lib/receiptPipeline";
 
 const STEPS = [
@@ -72,33 +73,38 @@ export default function ReadingReceiptScreen() {
       setStep(0);
 
       try {
-        let storagePath: string | null = null;
-
-        if (isSupabaseConfigured && userId && userId !== "local-user") {
-          const uploaded = await uploadReceiptImage(capturedReceiptUri, userId);
-          storagePath = uploaded.storagePath;
-          setReceiptUpload(uploaded.storagePath, uploaded.signedUrl);
-        }
+        const sessionUserId = await ensureReceiptReadingSession();
+        const effectiveUserId =
+          userId && userId !== "local-user" ? userId : sessionUserId;
 
         setReadStatus("reading");
         setStep(1);
 
-        let extraction = null;
-        if (storagePath) {
-          extraction = await readReceiptFromStorage(storagePath);
+        const { extraction, storagePath, signedUrl } = await readReceiptImage(
+          capturedReceiptUri,
+          effectiveUserId
+        );
+
+        if (storagePath && signedUrl) {
+          setReceiptUpload(storagePath, signedUrl);
         }
 
         setExtractionResult(extraction);
-        setReadStatus(extraction ? "done" : "partial");
-        setReadComplete(true);
-        router.replace("/add-purchase/review" as any);
+
+        if (isNotReceiptImage(extraction)) {
+          setReadStatus("not_receipt");
+        } else if (hasUsefulExtractedDetails(extraction)) {
+          setReadStatus("done");
+        } else {
+          setReadStatus("partial");
+        }
       } catch {
         setExtractionResult(null);
         setReadStatus("partial");
-        setReadComplete(true);
-        router.replace("/add-purchase/review" as any);
       } finally {
+        setReadComplete(true);
         pulse.stop();
+        router.replace("/add-purchase/review" as any);
       }
     })();
 

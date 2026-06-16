@@ -30,19 +30,11 @@ export default function ManualAddScreen() {
     itemName: "",
     storeName: "",
     category: "",
-    purchaseDate: new Date().toISOString().split("T")[0]!,
+    purchaseDate: "",
     totalAmount: "",
     currency: "USD",
-    returnDeadline: (() => {
-      const d = new Date();
-      d.setDate(d.getDate() + 30);
-      return d.toISOString().split("T")[0]!;
-    })(),
-    warrantyExpiry: (() => {
-      const d = new Date();
-      d.setFullYear(d.getFullYear() + 1);
-      return d.toISOString().split("T")[0]!;
-    })(),
+    returnDeadline: "",
+    warrantyExpiry: "",
     notes: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -196,7 +188,7 @@ export default function ManualAddScreen() {
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
             PURCHASE INFO
           </Text>
-          {field("Purchase Date", "purchaseDate")}
+          {field("Purchase Date", "purchaseDate", { placeholder: "Add purchase date" })}
           {field("Total Amount", "totalAmount", { keyboardType: "decimal-pad" })}
           {field("Currency", "currency")}
         </View>
