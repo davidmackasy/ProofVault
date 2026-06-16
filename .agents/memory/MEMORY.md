@@ -1,0 +1,2 @@
+- [ProofVault dark theming](proofvault-theme.md) — both light/dark keys in colors.ts use same dark palette; NativeTabs skipped for custom brand styling.
+- [ProofVault auth pattern](proofvault-auth.md) — Phase 1 uses mock local auth (AsyncStorage flag); Firebase Auth is Phase 4.

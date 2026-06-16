@@ -1,0 +1,996 @@
+# FINAL DEV NOTE FOR REPLIT AGENT
+
+## Build ProofVault MVP — Premium iOS Purchase Protection App
+
+I want you to build the first MVP of an app called **ProofVault**.
+
+ProofVault is a **purchase protection app**, not a basic receipt scanner, not an expense tracker, and not an accounting app.
+
+The app helps users save proof of expensive purchases, extract receipt/order details with AI, track return deadlines, track warranty expiry dates, and get reminders before they lose the chance to return, repair, or claim warranty.
+
+The main object in the app is a **Purchase Item**, not a receipt.
+
+A receipt is only one part of the item’s **Proof Pack**.
+
+Everything in the app should be built around this product structure:
+
+**Purchase Item → Proof Pack → Return Deadline → Warranty Deadline → Protection State → Reminder**
+
+If the app starts feeling like a folder of receipts, that is wrong.
+
+---
+
+## 1. Product Positioning
+
+ProofVault should feel like a **premium fintech/wallet app**.
+
+It should not feel like:
+
+* a document scanner
+* an accounting app
+* a budgeting app
+* a tax app
+* a business expense tracker
+* a generic receipt storage app
+
+It should feel like:
+
+> “Everything I bought is protected, organized, searchable, and ready when I need proof.”
+
+The emotional value is:
+
+> “Can I still return this?”
+> “Is this still under warranty?”
+> “Where is my receipt?”
+> “Can I prove I bought this?”
+
+The app should open on **value and reassurance**, not just a camera.
+
+---
+
+## 2. Core MVP Promise
+
+The MVP should allow a user to:
+
+1. Sign up or sign in.
+2. Add a purchase.
+3. Scan/upload a receipt, order screenshot, item photo, warranty card, or proof file.
+4. Use AI/OCR to extract purchase details.
+5. Review and edit the extracted details before saving.
+6. Set or confirm return deadline.
+7. Set or confirm warranty expiry date.
+8. Save a Proof Pack for each item.
+9. See what purchases are still returnable.
+10. See what warranties are ending soon.
+11. Get local notifications before deadlines expire.
+12. Search and filter saved purchases in a Vault.
+13. View item details and proof files.
+
+---
+
+## 3. Required Tech Stack
+
+Use this stack for the MVP:
+
+### App
+
+* Expo React Native
+* TypeScript
+* Expo Router
+* NativeWind
+* React Native Reanimated
+* Moti only if useful for small transitions
+* React Hook Form
+* Zod validation
+
+### Backend
+
+* Firebase Auth
+* Firestore
+* Firebase Storage
+* Firebase Cloud Functions
+
+### AI Extraction
+
+* OpenAI vision/OCR model called only from Firebase Cloud Functions
+* Never expose AI API keys inside the mobile app
+
+### Notifications
+
+* expo-notifications
+* Local notifications scheduled on-device after the user saves return/warranty dates
+
+### Payments
+
+* Do not build payment or subscription logic in MVP
+* Only create a placeholder subscription screen if needed
+
+Do not add extra backend systems unless absolutely required.
+
+---
+
+## 4. Important Build Rule
+
+Do not build everything at once.
+
+Build in phases:
+
+1. App foundation and navigation
+2. Static UI screens with mock data
+3. Local data prototype
+4. Firebase Auth / Firestore / Storage
+5. AI extraction Cloud Function
+6. Local notifications
+7. Polish and bug fixes
+
+Before writing code, first summarize your understanding of the app and confirm the screen list.
+
+Do not start coding until the scope is confirmed.
+
+---
+
+## 5. Design Direction
+
+Follow the uploaded UI reference direction.
+
+The app must feel:
+
+* premium
+* dark mode first
+* fintech-inspired
+* iOS-native
+* smooth
+* clean
+* minimal
+* trustworthy
+* fast
+* not childish
+* not cluttered
+
+Use:
+
+* deep black/navy background
+* dark elevated cards
+* clean white text
+* muted gray secondary text
+* lime-green accent for primary actions and positive states
+* amber for ending soon
+* red for missing proof/urgent states
+* gray for expired/archived states
+* rounded cards
+* subtle borders
+* large dashboard numbers
+* simple icons
+* smooth transitions
+* one main action per screen
+
+Suggested colors:
+
+* Background: `#070A0F`
+* Surface: `#111827`
+* Card Soft: `#1F2937`
+* Border: `#273244`
+* Text: `#FFFFFF`
+* Muted Text: `#9CA3AF`
+* Accent Lime: `#B6FF00`
+* Accent Alt: `#1FE0C2`
+* Success: `#22C55E`
+* Warning: `#F59E0B`
+* Danger: `#FF5A5F`
+
+Use lime carefully. It should feel premium, not gaming/crypto.
+
+---
+
+## 6. Navigation
+
+Use exactly 5 tabs.
+
+Bottom tabs:
+
+1. Home
+2. Vault
+3. Add
+4. Returns
+5. Profile
+
+The center **Add** button should be visually important and easy to tap.
+
+Do not add a sixth tab.
+
+---
+
+## 7. Screen List for MVP
+
+Build these screens.
+
+### Auth / Entry
+
+1. Splash screen
+2. Onboarding screens
+3. Sign up
+4. Sign in
+5. Notification permission screen
+
+### Main App
+
+6. Home dashboard
+7. Empty Home state
+8. Vault / Search
+9. Empty Vault state
+10. Add purchase screen
+11. Receipt / proof upload screen
+12. AI scanning/loading screen
+13. AI extraction review screen
+14. Failed AI extraction screen
+15. Manual add item screen
+16. Item details screen
+17. Edit item screen
+18. Proof Pack screen
+19. Add proof screen
+20. Returns tab
+21. Reminder / deadline detail screen
+22. Profile / settings
+23. Subscription placeholder screen
+
+Each screen must include:
+
+* loading state if needed
+* empty state if needed
+* error state if needed
+* clean navigation
+* reusable components
+
+Never leave blank screens.
+
+---
+
+## 8. Home Dashboard — Most Important Screen
+
+The Home screen is the key differentiator.
+
+It should not open like a scanner app.
+
+It should open like a purchase protection dashboard.
+
+Home layout:
+
+### Top
+
+* ProofVault logo/name
+* Notification bell
+
+### Hero Stat
+
+Show:
+
+* Protected value
+* Number of protected items
+
+Example:
+`$3,420 protected`
+`24 items protected`
+
+### Main Hero CTA
+
+This is the most important card:
+
+**Can I still return this?**
+
+Show live count:
+`3 items still returnable`
+
+This card should be big, clear, and tappable.
+
+Tapping it opens the Returns tab/view.
+
+### Attention Row
+
+Show horizontal cards:
+
+* Returns ending soon
+* Warranties ending soon
+* Needs proof
+
+### Recent Purchases
+
+Show item cards:
+
+* item image
+* item name
+* store
+* price
+* status badge
+* deadline countdown
+
+Empty Home state:
+Headline:
+“Your vault is empty.”
+
+Copy:
+“Add your first purchase and we’ll help protect it.”
+
+CTA:
+“Add your first purchase”
+
+---
+
+## 9. Returns Tab — “Can I Still Return This?”
+
+The Returns tab should answer the emotional question:
+
+**“Can I still return this?”**
+
+This is not just a boring reminders page.
+
+Default view:
+**Returnable now**
+
+Other filters:
+
+* Warranties
+* All deadlines
+
+Each item row should show:
+
+* item image
+* item name
+* store
+* days left
+* deadline date
+* proof attached status
+* tap to open item details
+
+Group items by urgency:
+
+* This week
+* This month
+* Later
+
+Empty state:
+“You’re all caught up. Nothing to return right now — we’ll let you know before any window closes.”
+
+---
+
+## 10. Add Purchase Flow
+
+The Add flow must be scan-first and proof-first.
+
+Do not start with a big manual form.
+
+Add screen options:
+
+* Scan Receipt
+* Upload Screenshot / PDF
+* Take Item Photo
+* Add Manually
+
+Copy:
+“Add proof now. You can complete details later.”
+
+Flow:
+Add → Upload/Scan → AI Scanning → AI Extraction Review → Confirm & Save → Item Details
+
+Manual add should be secondary.
+
+---
+
+## 11. AI Extraction Review
+
+After AI scans the receipt/order screenshot, show a review screen.
+
+Do not save AI results silently.
+
+The user must review and confirm everything.
+
+Fields:
+
+* Store / Merchant
+* Item name
+* Item description
+* Purchase date
+* Purchase time
+* Total amount
+* Currency
+* Receipt number
+* Order number
+* Return deadline
+* Warranty expiry
+* Category
+
+Show confidence:
+
+* High confidence
+* Medium confidence
+* Needs review
+
+If confidence is low, show:
+“Double-check the highlighted details.”
+
+Every field must be editable.
+
+Actions:
+
+* Confirm & Save
+* Edit Manually
+
+If AI fails:
+Show:
+“We couldn’t read everything.”
+
+Copy:
+“Your proof is still saved. You can fill in the missing details manually.”
+
+Actions:
+
+* Add Details Manually
+* Try Another Photo
+* Save Proof Only
+
+---
+
+## 12. Item Details Screen
+
+Each item should feel like a protected purchase record.
+
+Show:
+
+* item image
+* item name
+* store
+* price
+* purchase date
+* return deadline
+* warranty expiry
+* protection state
+* proof pack preview
+* notes
+
+Actions:
+
+* Open Proof Pack
+* Edit Item
+* Add Proof
+* Mark Returned
+* Archive Item
+* Export Proof Pack placeholder
+
+Status badges:
+
+* Returnable
+* Ending Soon
+* Under Warranty
+* Needs Proof
+* Expired
+* Archived
+* Fully Protected
+
+---
+
+## 13. Proof Pack
+
+Proof Pack is a core branded feature.
+
+It is the gallery of evidence for one item.
+
+Proof Pack groups:
+
+* Receipt
+* Online order screenshot
+* Item photos
+* Serial number
+* Warranty docs
+* Box / packaging
+* Notes
+
+Show completion gently:
+Example:
+`4 of 6 completed`
+
+Do not make the user feel punished.
+
+Use positive framing:
+
+* “Fully protected”
+* “Add proof to complete”
+
+Do not use a global negative protection score.
+
+---
+
+## 14. Vault / Search
+
+Vault shows all saved purchases.
+
+Include:
+
+* search bar
+* filters
+* item cards
+
+Search by:
+
+* item name
+* store
+* category
+* date
+* price
+* status
+
+Filters:
+
+* All
+* Returnable
+* Warranties
+* Needs Proof
+* Expired
+* Category
+* Store
+
+Item card:
+
+* thumbnail
+* item name
+* store
+* purchase date
+* status badges
+* days left
+* chevron to details
+
+---
+
+## 15. Profile / Settings
+
+Profile should include:
+
+* user info
+* protected value
+* items saved
+* account settings
+* notifications
+* dark mode toggle
+* subscription placeholder
+* export data placeholder
+* help/support
+* terms/privacy
+* sign out
+
+Do not build real subscription logic yet.
+
+---
+
+## 16. Data Model
+
+Use this basic TypeScript model.
+
+```ts
+type PurchaseStatus =
+  | "returnable"
+  | "ending_soon"
+  | "under_warranty"
+  | "needs_proof"
+  | "expired"
+  | "archived"
+  | "fully_protected";
+
+type ProofType =
+  | "receipt"
+  | "online_order"
+  | "item_photo"
+  | "serial_number"
+  | "box_photo"
+  | "warranty_card"
+  | "notes";
+
+type PurchaseItem = {
+  id: string;
+  userId: string;
+
+  itemName: string;
+  itemDescription?: string;
+  storeName?: string;
+  category?: string;
+
+  purchaseDate?: string;
+  purchaseTime?: string;
+
+  totalAmount?: number;
+  currency?: string;
+
+  receiptNumber?: string;
+  orderNumber?: string;
+
+  returnDeadline?: string;
+  warrantyExpiry?: string;
+
+  status: PurchaseStatus;
+  proofComplete: boolean;
+
+  proofPack: ProofFile[];
+
+  notes?: string;
+
+  sourceType: "physical_receipt" | "online_order" | "manual" | "unknown";
+
+  extractionResult?: ExtractionResult;
+
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ProofFile = {
+  id: string;
+  itemId: string;
+  userId: string;
+  type: ProofType;
+  fileUrl?: string;
+  thumbnailUrl?: string;
+  textValue?: string;
+  createdAt: string;
+};
+
+type ExtractionResult = {
+  confidence: number;
+  rawExtractedText?: string;
+
+  suggestedStoreName?: string | null;
+  suggestedItemName?: string | null;
+  suggestedPurchaseDate?: string | null;
+  suggestedPurchaseTime?: string | null;
+  suggestedTotalAmount?: number | null;
+  suggestedCurrency?: string | null;
+  suggestedReceiptNumber?: string | null;
+  suggestedOrderNumber?: string | null;
+  suggestedReturnPolicyText?: string | null;
+  suggestedWarrantyText?: string | null;
+
+  needsReview: boolean;
+};
+```
+
+---
+
+## 17. Firestore Structure
+
+Use:
+
+```txt
+users/{userId}
+users/{userId}/items/{itemId}
+users/{userId}/items/{itemId}/proofFiles/{proofFileId}
+users/{userId}/reminders/{reminderId}
+```
+
+Each user must only access their own data.
+
+Add Firebase security rules.
+
+---
+
+## 18. Firebase Storage Structure
+
+Use:
+
+```txt
+users/{userId}/items/{itemId}/proof/{proofFileId}
+```
+
+Store:
+
+* receipt images
+* item photos
+* serial number photos
+* warranty cards
+* box photos
+* order screenshots
+* PDFs
+
+---
+
+## 19. AI Extraction Flow
+
+The AI extraction must happen only on the backend.
+
+Flow:
+
+1. User scans/uploads proof.
+2. App uploads file to Firebase Storage.
+3. App creates extraction request.
+4. Firebase Cloud Function reads the file.
+5. Cloud Function calls OpenAI vision/OCR.
+6. AI returns structured JSON.
+7. Cloud Function saves extraction result.
+8. App opens AI Extraction Review.
+9. User edits/approves data.
+10. User saves Purchase Item.
+11. App schedules local notifications if deadlines exist.
+
+Never put the OpenAI API key in the app.
+
+---
+
+## 20. AI Extraction Prompt
+
+Use this inside the Cloud Function:
+
+```txt
+You are a purchase-proof extraction engine.
+
+You are given an image or PDF that is proof of a purchase. It may be a paper receipt, online order screenshot, email receipt screenshot, warranty card, or confirmation page.
+
+Extract the purchase details and return ONLY valid JSON. Do not include prose, markdown, or explanations.
+
+Return this JSON shape:
+
+{
+  "storeName": string | null,
+  "purchaseDate": string | null,
+  "purchaseTime": string | null,
+  "totalAmount": number | null,
+  "currency": string | null,
+  "items": [
+    {
+      "name": string,
+      "price": number | null
+    }
+  ],
+  "sourceType": "physical_receipt" | "online_order" | "unknown",
+  "receiptNumber": string | null,
+  "orderNumber": string | null,
+  "returnPolicyText": string | null,
+  "warrantyText": string | null,
+  "confidence": number,
+  "rawExtractedText": string
+}
+
+Rules:
+- If a field is not clearly visible, return null.
+- Do not guess aggressively.
+- Do not invent a store, date, total, return window, or warranty.
+- Null is better than wrong.
+- Lower confidence for blurry, cropped, partial, or unclear images.
+- Return confidence between 0 and 1.
+```
+
+The user must always review extracted details before final save.
+
+---
+
+## 21. Notification Logic
+
+Use local notifications for MVP.
+
+When the user confirms a return deadline:
+
+* schedule 7 days before
+* schedule 2 days before
+* schedule final day
+
+When the user confirms a warranty expiry:
+
+* schedule 30 days before
+* schedule 7 days before
+
+Example return notification:
+“Your Sony WH-1000XM5 return window ends in 7 days.”
+
+Example warranty notification:
+“Your MacBook Air M2 warranty expires in 30 days.”
+
+For items missing proof:
+“You saved Ninja Foodi Grill, but proof is missing.”
+
+Do not spam users.
+
+---
+
+## 22. Protection State Logic
+
+Calculate status based on deadlines and proof.
+
+Suggested rules:
+
+* If user archives item → archived
+* If no receipt/order proof exists → needs_proof
+* If return deadline is active and within 7 days → ending_soon
+* If return deadline is active → returnable
+* If warranty is active and within 30 days → ending_soon
+* If warranty is active → under_warranty
+* If proof is complete and deadlines are valid → fully_protected
+* If all deadlines are expired → expired
+
+Keep framing positive.
+
+Avoid a global “bad score.”
+
+---
+
+## 23. Reusable Components
+
+Create reusable components:
+
+* AppScreen
+* Header
+* BottomTabBar
+* PrimaryButton
+* SecondaryButton
+* TextInputField
+* StatusBadge
+* MetricCard
+* PurchaseItemCard
+* ProofPackItem
+* ReminderCard
+* EmptyState
+* LoadingState
+* ErrorState
+* SectionHeader
+* ProgressBar
+* ProgressRing
+* UploadOptionCard
+
+Do not duplicate UI patterns.
+
+---
+
+## 24. Build Order
+
+Build in this order.
+
+### Phase 1: Foundation
+
+* Create Expo React Native TypeScript app
+* Set up Expo Router
+* Set up NativeWind
+* Set up Reanimated
+* Create theme constants
+* Create reusable components
+* Create tab shell
+
+### Phase 2: Static UI With Mock Data
+
+Build all screens first using mock data:
+
+* Splash
+* Onboarding
+* Sign up
+* Sign in
+* Notification permission
+* Home
+* Vault
+* Add
+* AI scanning
+* AI extraction review
+* Failed AI extraction
+* Manual add
+* Item details
+* Proof Pack
+* Returns
+* Profile
+
+Do not connect Firebase yet.
+
+### Phase 3: Local Interactions
+
+* Navigation works
+* Mock purchases work
+* Search/filter works locally
+* Status badges work locally
+* Proof Pack completion works locally
+* Empty/loading/error states exist
+
+### Phase 4: Firebase
+
+* Firebase Auth
+* Firestore
+* Storage
+* Security rules
+* Save user purchase items
+* Upload proof files
+
+### Phase 5: AI Extraction
+
+* Build Firebase Cloud Function
+* Upload file
+* Call OpenAI vision/OCR
+* Return structured JSON
+* Show AI Extraction Review
+* Save confirmed item
+
+### Phase 6: Notifications
+
+* Explain notification permission
+* Schedule local reminders
+* Show deadline items in Returns tab
+
+### Phase 7: Polish
+
+* Animations
+* Skeleton loaders
+* Empty states
+* Error states
+* Image optimization
+* Performance cleanup
+* Test on iPhone with Expo
+
+---
+
+## 25. Out of Scope
+
+Do not build these in MVP:
+
+* payment/subscription logic
+* bank sync
+* Amazon login
+* retailer login
+* auto email import
+* tax tools
+* accounting tools
+* family sharing
+* business features
+* insurance claim automation
+* repair marketplace
+* social features
+* web dashboard
+* admin dashboard
+* global negative protection score
+* complex gamification
+* streaks
+
+Do not add features outside this PRD.
+
+---
+
+## 26. Definition of Done
+
+The MVP is done when:
+
+* User can sign up/sign in.
+* User can add a purchase.
+* User can scan/upload proof.
+* AI extraction can return structured purchase details.
+* User can review/edit extracted details.
+* User can save the purchase item.
+* User can view Home dashboard.
+* Home shows protected value and “Can I still return this?”
+* User can open Returns tab and see returnable items.
+* User can view item details.
+* User can add/view Proof Pack files.
+* User can search/filter Vault.
+* User can schedule local reminders.
+* User can receive deadline notifications.
+* Empty/loading/error states are handled.
+* UI matches the premium dark fintech style.
+* App runs in Expo without major crashes.
+* Code is typed, organized, and maintainable.
+
+---
+
+## 27. First Task For You, Replit Agent
+
+Before coding, do this:
+
+1. Read this full dev note.
+2. Summarize your understanding of ProofVault.
+3. Confirm the MVP scope.
+4. List the screens you will build.
+5. List the folder structure you recommend.
+6. List packages you need to install.
+7. Wait for approval before writing code.
+
+Do not start coding until I approve your plan.
+
+Once approved, begin with Phase 1 only:
+
+* Expo TypeScript setup
+* Expo Router
+* NativeWind
+* Reanimated
+* theme constants
+* reusable components
+* bottom tab shell
+* placeholder screens
+
+Do not connect Firebase yet.
+Do not build AI extraction yet.
+Do not add subscriptions.
+Do not add extra features.
